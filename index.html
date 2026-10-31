@@ -1,0 +1,113 @@
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<body style="margin:0;overflow:hidden;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;"><canvas id="pad" style="touch-action:none;display:block"></canvas>
+<div style="position:absolute;top:10px;left:10px;right:10px;
+  display:flex;flex-wrap:wrap;gap:8px">
+  <button id="eraserBtn">Eraser</button>
+  <button id="ColrBtn">Color</button>
+  <button id="undoBtn">Undo</button>
+  <button id="redoBtn">Redo</button>
+  <button id="clearBtn">Clear</button>
+</div>
+
+<style>
+  button { padding:10px 14px; font-size:16px; border-radius:8px; }
+</style>
+<script>
+
+const canvas = document.getElementById('pad');
+const ctx = canvas.getContext('2d');
+const eraserBtn = document.getElementById('eraserBtn');
+const colorBtn = document.getElementById('ColrBtn');
+const undoBtn = document.getElementById('undoBtn');
+const redoBtn = document.getElementById('redoBtn');
+const clearBtn = document.getElementById('clearBtn');
+const undoStack = [];
+const redoStack = [];
+let erasing = false;
+let color = 'black';
+function snapshot() {
+  return ctx.getImageData(0, 0, canvas.width, canvas.height);
+}
+
+// make the canvas fill the screen
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+// pen style
+ctx.lineWidth = 5;
+ctx.lineCap = 'round';      // smooth line ends
+ctx.strokeStyle = color;
+
+let drawing = false;
+
+canvas.addEventListener('pointerdown', e => {
+  drawing = true;       
+  ctx.beginPath();
+  ctx.moveTo(e.clientX, e.clientY);
+  undoStack.push(snapshot());
+  redoStack.length = 0;
+  if (undoStack.length > 50) undoStack.shift();  
+});
+
+canvas.addEventListener('pointermove', e => {
+  if (!drawing) return; 
+  ctx.lineTo(e.clientX, e.clientY);
+  ctx.stroke();
+});
+canvas.addEventListener('pointercancel', () => { drawing = false; });
+
+canvas.addEventListener('pointerup', () => {
+  drawing = false;
+});
+
+eraserBtn.addEventListener('click', () => {
+  erasing = !erasing;
+  if (erasing) {
+    ctx.lineWidth = 20;
+  } else {
+    ctx.lineWidth = 5;
+  }
+  if (erasing) {
+    ctx.globalCompositeOperation = 'destination-out';
+    eraserBtn.textContent = 'Pen';
+  } else {
+    ctx.globalCompositeOperation = 'source-over';
+    eraserBtn.textContent = 'Eraser';
+  }
+});
+colorBtn.addEventListener('click', () => {
+  const colors = ['black', 'red', 'green', 'blue', 'yellow'];
+  const currentIndex = colors.indexOf(color);
+  color = colors[(currentIndex + 1) % colors.length];
+  ctx.strokeStyle = color;
+  colorBtn.style.background = color;
+
+  //switch to pen mode
+  erasing = false;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.lineWidth = 5;
+  eraserBtn.textContent = 'Eraser';
+});
+
+undoBtn.addEventListener('click', () => {
+  if (undoStack.length > 0) {
+    redoStack.push(snapshot());
+    const prevState = undoStack.pop();
+    ctx.putImageData(prevState, 0, 0);
+  }
+});
+
+redoBtn.addEventListener('click', () => {
+  if (redoStack.length > 0) {
+    undoStack.push(snapshot());
+    const nextState = redoStack.pop();
+    ctx.putImageData(nextState, 0, 0);
+  }
+});
+clearBtn.addEventListener('click', () => {
+  undoStack.push(snapshot());
+  redoStack.length = 0;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+});
+</script>
+</body>
